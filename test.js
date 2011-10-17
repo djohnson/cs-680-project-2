@@ -1,4 +1,4 @@
-var animate, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, dEnd, dStart, deselect, drawColor, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, mouse2D, mouse3D, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
+var animate, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentObj, dEnd, dStart, deselect, drawColor, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, mouse2D, mouse3D, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
 if (!Detector.webgl) {
   Detector.addGetWebGLMessage();
 }
@@ -28,6 +28,8 @@ shapeChoice = {
   circle: false,
   line: false
 };
+currentObj = '';
+shapeChoiceIsSet = false;
 meshMaterial = new THREE.MeshBasicMaterial({
   color: drawColor,
   wireframe: false
@@ -61,42 +63,59 @@ init = function() {
   return document.addEventListener("keyup", onDocumentKeyUp, false);
 };
 onDocumentMouseMove = function(event) {
+  var dX, dY, radius, temp, xScale, yScale;
   event.preventDefault();
   mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
-  return mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  temp = mouse2D.clone();
+  projector.unprojectVector(temp, camera);
+  if (isMouseDown && shapeChoiceIsSet() && !shapeChoice.line) {
+    dX = Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x);
+    dY = Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y);
+    if (shapeChoice.rectangle) {
+      xScale = dX / 5.0;
+      yScale = dY / 5.0;
+    } else if (shapeChoice.circle) {
+      radius = Math.sqrt(dX * dX + dY * dY);
+      xScale = yScale = radius / 14;
+    }
+    currentObj.scale.set(xScale, yScale, 1);
+    return currentObj.updateMatrix();
+  }
 };
 onDocumentMouseDown = function(event) {
-  var temp;
+  var pX, pY, temp;
   event.preventDefault();
   isMouseDown = true;
   mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
   mouse2D.z = 1;
-  temp = mouse2D;
+  temp = mouse2D.clone();
   projector.unprojectVector(temp, camera);
   dStart.x = temp.x;
   dStart.y = temp.y;
-  return dStart.z = 0;
+  dStart.z = 0;
+  if (shapeChoice.rectangle) {
+    pX = dStart.x;
+    pY = dStart.y;
+    return makeRectangle(10, 10, pX, pY, drawColor);
+  } else if (shapeChoice.circle) {
+    return makeCircle(10, 10, dStart.x, dStart.y, drawColor);
+  }
 };
 onDocumentMouseUp = function(event) {
-  var dX, dY, pX, pY;
+  var dX, dY;
   event.preventDefault();
   isMouseDown = false;
   setDrawColor();
   mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
   mouse2D.z = 1;
-  dEnd = mouse2D;
+  dEnd = mouse2D.clone();
   dEnd = projector.unprojectVector(dEnd, camera);
   dX = Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x);
   dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
-  if (shapeChoice.rectangle) {
-    pX = dStart.x + .5 * dX;
-    pY = dStart.y - .5 * dY;
-    return makeRectangle(dX, dY, pX, pY, drawColor);
-  } else if (shapeChoice.circle) {
-    return makeCircle(dX, dY, dStart.x, dStart.y, drawColor);
-  } else if (shapeChoice.line) {
+  if (shapeChoice.line) {
     return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
   }
 };
@@ -167,7 +186,8 @@ makeRectangle = function(dX, dY, pX, pY, color) {
   square.matrixAutoUpdate = false;
   square.updateMatrix();
   scene.addObject(square);
-  return object_list[square.id] = ['rectangle', dX, dY, pX, pY, color];
+  object_list[square.id] = ['rectangle', dX, dY, pX, pY, color];
+  return currentObj = square;
 };
 makeCircle = function(dX, dY, pX, pY, color) {
   var circle, circleGeo, radius;
@@ -182,15 +202,16 @@ makeCircle = function(dX, dY, pX, pY, color) {
     circle.matrixAutoUpdate = false;
     circle.updateMatrix();
     scene.addObject(circle);
-    return object_list[circle.id] = ['circle', dX, dY, pX, pY, color];
+    object_list[circle.id] = ['circle', dX, dY, pX, pY, color];
+    return currentObj = circle;
   }
 };
 makeLine = function(sX, sY, eX, eY, color) {
   var line, lineGeo, p1, p2;
   lineMat = new THREE.LineBasicMaterial({
     color: color,
-    opacity: 0.8,
-    linewidth: 1
+    opacity: 1.0,
+    linewidth: 2
   });
   lineGeo = new THREE.Geometry(0);
   p1 = new THREE.Vector3(sX, sY, 0);
@@ -199,7 +220,8 @@ makeLine = function(sX, sY, eX, eY, color) {
   lineGeo.vertices.push(new THREE.Vertex(p2));
   line = new THREE.Line(lineGeo, lineMat);
   scene.addObject(line);
-  return object_list[line.id] = ['line', sX, sY, eX, eY, color];
+  object_list[line.id] = ['line', sX, sY, eX, eY, color];
+  return currentObj = line;
 };
 showPrompt = function() {
   var name;
@@ -235,6 +257,9 @@ setDrawColor = function() {
   drawColor += r;
   drawColor += g;
   return drawColor += b;
+};
+shapeChoiceIsSet = function() {
+  return shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle;
 };
 color_gui = new DAT.GUI({
   height: 3 * 32 - 1

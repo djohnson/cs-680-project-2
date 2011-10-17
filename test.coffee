@@ -33,6 +33,8 @@ shapeChoice =
   circle: false
   line: false
 
+currentObj = ''
+shapeChoiceIsSet = false
 
 meshMaterial = new THREE.MeshBasicMaterial(
   color: drawColor
@@ -97,24 +99,29 @@ onDocumentMouseMove = (event) ->
   event.preventDefault()
   mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1
   mouse2D.y = -((event.clientY )/ (window.innerHeight )) * 2 + 1
-  # gotta figure out how to draw incramentally
-  # if isMouseDown
-  #   intersects = ray.intersectScene(scene)
-  #   if intersects.length > 0
-  #     intersector = getRealIntersector(intersects)
-  #     if isCtrlDown
-  #       scene.removeObject intersector.object  unless intersector.object == plane
-  #     else
-  #       intersector = getRealIntersector(intersects)
-  #       setSquarePosition intersector
-  #       square = new THREE.Mesh(cubeGeo, meshMaterial)
-  #       square.position.copy squarePosition
-  #       square.matrixAutoUpdate = false
-  #       square.updateMatrix()
-  #       scene.addObject square
+
+  temp = mouse2D.clone()
+  projector.unprojectVector(temp, camera)
+
+  if isMouseDown && shapeChoiceIsSet() && ! shapeChoice.line
+
+    dX = ( Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x) )
+    dY = ( Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y) )
+
+    if shapeChoice.rectangle
+      xScale = dX / 5.0
+      yScale = dY / 5.0
+    else if shapeChoice.circle
+      radius = Math.sqrt(dX * dX + dY * dY)
+      xScale = yScale = radius / 14
+
+    currentObj.scale.set(xScale, yScale, 1)
+    currentObj.updateMatrix()
+
 
 # onDocumentMouseDown(event)
 # find the current location of the click event by unprojecting
+# if a shapeChoice has been made then create the base object of small size (scale it as mouse moves while mouse down)
 onDocumentMouseDown = (event) ->
   event.preventDefault()
   isMouseDown = true
@@ -123,12 +130,22 @@ onDocumentMouseDown = (event) ->
   mouse2D.y = -((event.clientY )/ window.innerHeight) * 2 + 1
   mouse2D.z = 1
 
-  temp = mouse2D
+  temp = mouse2D.clone()
   projector.unprojectVector( temp, camera)
 
   dStart.x = temp.x
   dStart.y = temp.y
   dStart.z = 0
+
+  if shapeChoice.rectangle
+    pX = dStart.x
+    pY = dStart.y
+    makeRectangle(10,10,pX,pY, drawColor)
+  else if shapeChoice.circle
+    makeCircle(10, 10, dStart.x, dStart.y, drawColor)
+
+
+
 
 # onDocumentMouseUp(event)
 # find the current location of the click event by unprojecting
@@ -144,7 +161,7 @@ onDocumentMouseUp = (event) ->
   mouse2D.y = -((event.clientY )/ window.innerHeight) * 2 + 1
   mouse2D.z = 1
 
-  dEnd = mouse2D
+  dEnd = mouse2D.clone()
   dEnd = projector.unprojectVector( dEnd, camera)
 
   # find the delta between the initial mouse down and the mouse up positions
@@ -153,14 +170,15 @@ onDocumentMouseUp = (event) ->
 
 
   # draw the shape
-  if shapeChoice.rectangle
-    # calculate the position of the rectangle (position is the center of the object so I have to offset by half the height and width)
-    pX = dStart.x + .5 * dX
-    pY = dStart.y - .5 * dY
-    makeRectangle(dX,dY,pX,pY, drawColor)
-  else if shapeChoice.circle
-    makeCircle(dX, dY, dStart.x, dStart.y, drawColor)
-  else if shapeChoice.line
+  # if shapeChoice.rectangle
+  #   # calculate the position of the rectangle (position is the center of the object so I have to offset by half the height and width)
+  #   pX = dStart.x + .5 * dX
+  #   pY = dStart.y - .5 * dY
+  #   makeRectangle(dX,dY,pX,pY, drawColor)
+  # else if shapeChoice.circle
+  #   makeCircle(dX, dY, dStart.x, dStart.y, drawColor)
+  # else
+  if shapeChoice.line
     makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
 
 # onDocumentKeyDown(event)
@@ -255,6 +273,7 @@ makeRectangle = (dX, dY, pX, pY, color ) ->
   scene.addObject square
   # add the object to the object list for save/load purposes
   object_list[square.id] = ['rectangle', dX, dY, pX, pY, color]
+  currentObj = square
 
 # makeCircle(deltaX, deltaY, positionX, positionY)
 # create a circle from radius, and center point
@@ -273,14 +292,15 @@ makeCircle = (dX, dY, pX, pY, color) ->
     scene.addObject circle
     # add the object to the object list for save/load purposes
     object_list[circle.id] = ['circle', dX, dY, pX, pY, color]
+    currentObj = circle
 
 # makeLine(startX, startY, end, endY)
 # create a Line from start point and end point
 makeLine = (sX, sY, eX, eY, color) ->
   lineMat = new THREE.LineBasicMaterial(
     color: color
-    opacity: 0.8
-    linewidth: 1
+    opacity: 1.0
+    linewidth: 2
   )
 
   lineGeo = new THREE.Geometry(0)
@@ -292,6 +312,7 @@ makeLine = (sX, sY, eX, eY, color) ->
   scene.addObject(line)
   # add the object to the object list for save/load purposes
   object_list[line.id] = ['line', sX, sY, eX, eY, color]
+  currentObj = line
 
 # open a prompt asking for the save/load name
 showPrompt = ->
@@ -332,6 +353,9 @@ setDrawColor = ->
   drawColor += b
 
 ######## UI Elements ################
+
+shapeChoiceIsSet = ->
+  return (shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle)
 
 # create the color control UI
 color_gui = new DAT.GUI({
