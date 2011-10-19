@@ -33,8 +33,13 @@ shapeChoice =
   circle: false
   line: false
 
+modeChoice =
+  create: false
+  select: false
+
 currentObj = ''
 shapeChoiceIsSet = false
+currentHeight = 0
 
 meshMaterial = new THREE.MeshBasicMaterial(
   color: drawColor
@@ -62,11 +67,9 @@ init = ->
   # create a new camera with an orthographic projection
   # params go (left, right, top, bottom, near, far)
   # the aspect ration * 1000 for right is set the far right coordiante of the canvas correctly in the event of a non square window
-  camera = new THREE.OrthoCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000)
-  # set the camera to somewhere high up on the z axis
-  camera.position.set(0, 0, 10000)
-  # ensure the camera view projection is centered on the origin (it is by default, but being verbose)
-  camera.target.position.set( 0, 0, 0 )
+  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000)
+  camera.position.set(0, 0, 0)
+  # camera.target.position.set( 0, 0, 10000 )
 
   # create scene object, this will contain all my drawable elements
   scene = new THREE.Scene()
@@ -103,7 +106,7 @@ onDocumentMouseMove = (event) ->
   temp = mouse2D.clone()
   projector.unprojectVector(temp, camera)
 
-  if isMouseDown && shapeChoiceIsSet() && ! shapeChoice.line
+  if isMouseDown && modeChoice.create && shapeChoiceIsSet() && ! shapeChoice.line
 
     dX = ( Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x) )
     dY = ( Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y) )
@@ -115,7 +118,7 @@ onDocumentMouseMove = (event) ->
       radius = Math.sqrt(dX * dX + dY * dY)
       xScale = yScale = radius / 14
 
-    currentObj.scale.set(xScale, yScale, 1)
+    currentObj.scale.set(xScale, yScale, .000001)
     currentObj.updateMatrix()
 
 
@@ -137,12 +140,26 @@ onDocumentMouseDown = (event) ->
   dStart.y = temp.y
   dStart.z = 0
 
-  if shapeChoice.rectangle
-    pX = dStart.x
-    pY = dStart.y
-    makeRectangle(10,10,pX,pY, drawColor)
-  else if shapeChoice.circle
-    makeCircle(10, 10, dStart.x, dStart.y, drawColor)
+  if modeChoice.select
+    # find the object with the highest z position that the click coordinates are within
+    ray = projector.pickingRay( mouse2D.clone(), camera)
+    tempTopObj = null
+    intersects = ray.intersectScene scene
+    console.log intersects
+    for obj in intersects
+      if tempTopObj == null
+        tempTopObj = obj.object
+      if obj.object.position.z > tempTopObj.position.z
+        tempTopObj = obj.object
+    scene.remove tempTopObj
+
+  if modeChoice.create
+    if shapeChoice.rectangle
+      pX = dStart.x
+      pY = dStart.y
+      makeRectangle(10,10,pX,pY, drawColor)
+    else if shapeChoice.circle
+      makeCircle(10, 10, dStart.x, dStart.y, drawColor)
 
 
 
@@ -178,8 +195,9 @@ onDocumentMouseUp = (event) ->
   # else if shapeChoice.circle
   #   makeCircle(dX, dY, dStart.x, dStart.y, drawColor)
   # else
-  if shapeChoice.line
-    makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
+  if modeChoice.create
+    if shapeChoice.line
+      makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
 
 # onDocumentKeyDown(event)
 # respond to keypresses
@@ -267,13 +285,14 @@ makeRectangle = (dX, dY, pX, pY, color ) ->
 
   newSquareGeo = new THREE.CubeGeometry(dX, dY, 1)
   square = new THREE.Mesh(newSquareGeo, meshMaterial)
-  square.position.set(pX,pY,0)
+  square.position.set(pX,pY,currentHeight)
   square.matrixAutoUpdate = false
   square.updateMatrix()
-  scene.addObject square
+  scene.add square
   # add the object to the object list for save/load purposes
   object_list[square.id] = ['rectangle', dX, dY, pX, pY, color]
   currentObj = square
+  currentHeight += 1
 
 # makeCircle(deltaX, deltaY, positionX, positionY)
 # create a circle from radius, and center point
@@ -286,13 +305,14 @@ makeCircle = (dX, dY, pX, pY, color) ->
   if radius > 10
     circleGeo = new THREE.SphereGeometry(radius, 20, 20)
     circle = new THREE.Mesh(circleGeo, meshMaterial)
-    circle.position.set(pX, pY,0)
+    circle.position.set(pX, pY,currentHeight)
     circle.matrixAutoUpdate = false
     circle.updateMatrix()
-    scene.addObject circle
+    scene.add circle
     # add the object to the object list for save/load purposes
     object_list[circle.id] = ['circle', dX, dY, pX, pY, color]
     currentObj = circle
+    currentHeight += 1
 
 # makeLine(startX, startY, end, endY)
 # create a Line from start point and end point
@@ -304,15 +324,16 @@ makeLine = (sX, sY, eX, eY, color) ->
   )
 
   lineGeo = new THREE.Geometry(0)
-  p1 = new THREE.Vector3(sX, sY,0)
-  p2 = new THREE.Vector3(eX, eY,0)
+  p1 = new THREE.Vector3(sX, sY,currentHeight)
+  p2 = new THREE.Vector3(eX, eY,currentHeight)
   lineGeo.vertices.push(new THREE.Vertex(p1))
   lineGeo.vertices.push(new THREE.Vertex(p2))
   line = new THREE.Line(lineGeo, lineMat )
-  scene.addObject(line)
+  scene.add(line)
   # add the object to the object list for save/load purposes
   object_list[line.id] = ['line', sX, sY, eX, eY, color]
   currentObj = line
+  currentHeight += 1
 
 # open a prompt asking for the save/load name
 showPrompt = ->
@@ -391,7 +412,21 @@ shape_gui.add(shapeChoice, "line").listen().onChange(deselect = ->
     shapeChoice.circle = false
 )
 
-# shape_gui.domElement.id = "shapeSelector"
+# create the mode control UI
+mode_gui = new DAT.GUI({
+  height: 2*32 -1
+})
+
+mode_gui.name("Mode Selector")
+# the shape options should deselect the other shape choices and those that are deselected should update their values
+mode_gui.add(modeChoice, "create").listen().onChange(deselect = ->
+  if modeChoice.create
+    modeChoice.select = false
+)
+mode_gui.add(modeChoice, "select").listen().onChange(deselect = ->
+  if modeChoice.select
+    modeChoice.create = false
+)
 
 
 ############# Main Loop ###############

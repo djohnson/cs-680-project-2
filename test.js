@@ -1,4 +1,4 @@
-var animate, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentObj, dEnd, dStart, deselect, drawColor, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, mouse2D, mouse3D, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
+var animate, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentHeight, currentObj, dEnd, dStart, deselect, drawColor, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse2D, mouse3D, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
 if (!Detector.webgl) {
   Detector.addGetWebGLMessage();
 }
@@ -28,8 +28,13 @@ shapeChoice = {
   circle: false,
   line: false
 };
+modeChoice = {
+  create: false,
+  select: false
+};
 currentObj = '';
 shapeChoiceIsSet = false;
+currentHeight = 0;
 meshMaterial = new THREE.MeshBasicMaterial({
   color: drawColor,
   wireframe: false
@@ -44,9 +49,8 @@ init = function() {
   container = document.createElement("div");
   document.body.appendChild(container);
   aspect_ratio = window.innerWidth / window.innerHeight;
-  camera = new THREE.OrthoCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000);
-  camera.position.set(0, 0, 10000);
-  camera.target.position.set(0, 0, 0);
+  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000);
+  camera.position.set(0, 0, 0);
   scene = new THREE.Scene();
   projector = new THREE.Projector();
   mouse2D = new THREE.Vector3(0, 10000, 0.5);
@@ -69,7 +73,7 @@ onDocumentMouseMove = function(event) {
   mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
   temp = mouse2D.clone();
   projector.unprojectVector(temp, camera);
-  if (isMouseDown && shapeChoiceIsSet() && !shapeChoice.line) {
+  if (isMouseDown && modeChoice.create && shapeChoiceIsSet() && !shapeChoice.line) {
     dX = Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x);
     dY = Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y);
     if (shapeChoice.rectangle) {
@@ -79,12 +83,12 @@ onDocumentMouseMove = function(event) {
       radius = Math.sqrt(dX * dX + dY * dY);
       xScale = yScale = radius / 14;
     }
-    currentObj.scale.set(xScale, yScale, 1);
+    currentObj.scale.set(xScale, yScale, .000001);
     return currentObj.updateMatrix();
   }
 };
 onDocumentMouseDown = function(event) {
-  var pX, pY, temp;
+  var intersects, obj, pX, pY, temp, tempTopObj, _i, _len;
   event.preventDefault();
   isMouseDown = true;
   mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -95,12 +99,30 @@ onDocumentMouseDown = function(event) {
   dStart.x = temp.x;
   dStart.y = temp.y;
   dStart.z = 0;
-  if (shapeChoice.rectangle) {
-    pX = dStart.x;
-    pY = dStart.y;
-    return makeRectangle(10, 10, pX, pY, drawColor);
-  } else if (shapeChoice.circle) {
-    return makeCircle(10, 10, dStart.x, dStart.y, drawColor);
+  if (modeChoice.select) {
+    ray = projector.pickingRay(mouse2D.clone(), camera);
+    tempTopObj = null;
+    intersects = ray.intersectScene(scene);
+    console.log(intersects);
+    for (_i = 0, _len = intersects.length; _i < _len; _i++) {
+      obj = intersects[_i];
+      if (tempTopObj === null) {
+        tempTopObj = obj.object;
+      }
+      if (obj.object.position.z > tempTopObj.position.z) {
+        tempTopObj = obj.object;
+      }
+    }
+    scene.remove(tempTopObj);
+  }
+  if (modeChoice.create) {
+    if (shapeChoice.rectangle) {
+      pX = dStart.x;
+      pY = dStart.y;
+      return makeRectangle(10, 10, pX, pY, drawColor);
+    } else if (shapeChoice.circle) {
+      return makeCircle(10, 10, dStart.x, dStart.y, drawColor);
+    }
   }
 };
 onDocumentMouseUp = function(event) {
@@ -115,8 +137,10 @@ onDocumentMouseUp = function(event) {
   dEnd = projector.unprojectVector(dEnd, camera);
   dX = Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x);
   dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
-  if (shapeChoice.line) {
-    return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+  if (modeChoice.create) {
+    if (shapeChoice.line) {
+      return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+    }
   }
 };
 onDocumentKeyDown = function(event) {
@@ -182,12 +206,13 @@ makeRectangle = function(dX, dY, pX, pY, color) {
   });
   newSquareGeo = new THREE.CubeGeometry(dX, dY, 1);
   square = new THREE.Mesh(newSquareGeo, meshMaterial);
-  square.position.set(pX, pY, 0);
+  square.position.set(pX, pY, currentHeight);
   square.matrixAutoUpdate = false;
   square.updateMatrix();
-  scene.addObject(square);
+  scene.add(square);
   object_list[square.id] = ['rectangle', dX, dY, pX, pY, color];
-  return currentObj = square;
+  currentObj = square;
+  return currentHeight += 1;
 };
 makeCircle = function(dX, dY, pX, pY, color) {
   var circle, circleGeo, radius;
@@ -198,12 +223,13 @@ makeCircle = function(dX, dY, pX, pY, color) {
   if (radius > 10) {
     circleGeo = new THREE.SphereGeometry(radius, 20, 20);
     circle = new THREE.Mesh(circleGeo, meshMaterial);
-    circle.position.set(pX, pY, 0);
+    circle.position.set(pX, pY, currentHeight);
     circle.matrixAutoUpdate = false;
     circle.updateMatrix();
-    scene.addObject(circle);
+    scene.add(circle);
     object_list[circle.id] = ['circle', dX, dY, pX, pY, color];
-    return currentObj = circle;
+    currentObj = circle;
+    return currentHeight += 1;
   }
 };
 makeLine = function(sX, sY, eX, eY, color) {
@@ -214,14 +240,15 @@ makeLine = function(sX, sY, eX, eY, color) {
     linewidth: 2
   });
   lineGeo = new THREE.Geometry(0);
-  p1 = new THREE.Vector3(sX, sY, 0);
-  p2 = new THREE.Vector3(eX, eY, 0);
+  p1 = new THREE.Vector3(sX, sY, currentHeight);
+  p2 = new THREE.Vector3(eX, eY, currentHeight);
   lineGeo.vertices.push(new THREE.Vertex(p1));
   lineGeo.vertices.push(new THREE.Vertex(p2));
   line = new THREE.Line(lineGeo, lineMat);
-  scene.addObject(line);
+  scene.add(line);
   object_list[line.id] = ['line', sX, sY, eX, eY, color];
-  return currentObj = line;
+  currentObj = line;
+  return currentHeight += 1;
 };
 showPrompt = function() {
   var name;
@@ -288,6 +315,20 @@ shape_gui.add(shapeChoice, "line").listen().onChange(deselect = function() {
   if (shapeChoice.line) {
     shapeChoice.rectangle = false;
     return shapeChoice.circle = false;
+  }
+});
+mode_gui = new DAT.GUI({
+  height: 2 * 32 - 1
+});
+mode_gui.name("Mode Selector");
+mode_gui.add(modeChoice, "create").listen().onChange(deselect = function() {
+  if (modeChoice.create) {
+    return modeChoice.select = false;
+  }
+});
+mode_gui.add(modeChoice, "select").listen().onChange(deselect = function() {
+  if (modeChoice.select) {
+    return modeChoice.create = false;
   }
 });
 init();
