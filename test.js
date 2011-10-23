@@ -1,8 +1,8 @@
-var animate, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentHeight, currentObj, dEnd, dStart, deselect, drawColor, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse2D, mouse3D, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
+var animate, blah, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentHeight, currentObj, dEnd, dStart, deselect, drawColor, getPosition, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse3D, mousePos, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
 if (!Detector.webgl) {
   Detector.addGetWebGLMessage();
 }
-mouse2D = projector = camera = ray = scene = renderer = stats = container = plane = cube = mouse3D = rollOveredFace = rollOverMesh = rollOverMaterial = cubeGeo = meshMaterial = i = intersector = '';
+mousePos = projector = camera = ray = scene = renderer = stats = container = plane = cube = mouse3D = rollOveredFace = rollOverMesh = rollOverMaterial = cubeGeo = meshMaterial = i = intersector = '';
 object_list = [];
 isMouseDown = false;
 square_size = 2;
@@ -16,6 +16,7 @@ makeSquare = false;
 startSquarePosX = '';
 startSquarePosY = '';
 click2D = '';
+blah = '';
 dStart = new THREE.Vector3();
 dEnd = new THREE.Vector3();
 colorValues = {
@@ -53,7 +54,7 @@ init = function() {
   camera.position.set(0, 0, 0);
   scene = new THREE.Scene();
   projector = new THREE.Projector();
-  mouse2D = new THREE.Vector3(0, 10000, 0.5);
+  mousePos = new THREE.Vector3(0, 10000, 0.5);
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     preserveDrawingBuffer: true
@@ -67,11 +68,12 @@ init = function() {
   return document.addEventListener("keyup", onDocumentKeyUp, false);
 };
 onDocumentMouseMove = function(event) {
-  var dX, dY, radius, temp, xScale, yScale;
+  var dX, dY, position, radius, temp, xScale, yScale;
   event.preventDefault();
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  temp = mouse2D.clone();
+  position = getPosition(event);
+  mousePos.x = (position.x / window.innerWidth) * 2 - 1;
+  mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
+  temp = mousePos.clone();
   projector.unprojectVector(temp, camera);
   if (isMouseDown && modeChoice.create && shapeChoiceIsSet() && !shapeChoice.line) {
     dX = Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x);
@@ -88,19 +90,20 @@ onDocumentMouseMove = function(event) {
   }
 };
 onDocumentMouseDown = function(event) {
-  var intersects, obj, pX, pY, temp, tempTopObj, _i, _len;
+  var intersects, obj, pX, pY, position, temp, tempTopObj, _i, _len;
   event.preventDefault();
   isMouseDown = true;
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  mouse2D.z = 1;
-  temp = mouse2D.clone();
+  position = getPosition(event);
+  mousePos.x = (position.x / window.innerWidth) * 2 - 1;
+  mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
+  mousePos.z = 1;
+  temp = mousePos.clone();
   projector.unprojectVector(temp, camera);
   dStart.x = temp.x;
   dStart.y = temp.y;
   dStart.z = 0;
   if (modeChoice.select) {
-    ray = projector.pickingRay(mouse2D.clone(), camera);
+    ray = projector.pickingRay(mousePos.clone(), camera);
     tempTopObj = null;
     intersects = ray.intersectScene(scene);
     console.log(intersects);
@@ -126,14 +129,15 @@ onDocumentMouseDown = function(event) {
   }
 };
 onDocumentMouseUp = function(event) {
-  var dX, dY;
+  var dX, dY, position;
   event.preventDefault();
   isMouseDown = false;
   setDrawColor();
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse2D.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  mouse2D.z = 1;
-  dEnd = mouse2D.clone();
+  position = getPosition(event);
+  mousePos.x = (position.x / window.innerWidth) * 2 - 1;
+  mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
+  mousePos.z = 1;
+  dEnd = mousePos.clone();
   dEnd = projector.unprojectVector(dEnd, camera);
   dX = Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x);
   dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
@@ -331,6 +335,29 @@ mode_gui.add(modeChoice, "select").listen().onChange(deselect = function() {
     return modeChoice.create = false;
   }
 });
+getPosition = function(e) {
+  var targ, x, y;
+  targ = void 0;
+  if (!e) {
+    e = window.event;
+  }
+  if (e.target) {
+    targ = e.target;
+  } else {
+    if (e.srcElement) {
+      targ = e.srcElement;
+    }
+  }
+  if (targ.nodeType === 3) {
+    targ = targ.parentNode;
+  }
+  x = e.pageX - $(targ).offset().left;
+  y = e.pageY - $(targ).offset().top;
+  return {
+    x: x,
+    y: y
+  };
+};
 init();
 animate();
 setDrawColor();

@@ -2,7 +2,7 @@
 Detector.addGetWebGLMessage()  unless Detector.webgl
 
 ################ Global Variables ##############
-mouse2D = projector = camera = ray = scene = renderer = stats = container = plane = cube = mouse3D = rollOveredFace = rollOverMesh = rollOverMaterial = cubeGeo = meshMaterial = i = intersector = ''
+mousePos = projector = camera = ray = scene = renderer = stats = container = plane = cube = mouse3D = rollOveredFace = rollOverMesh = rollOverMaterial = cubeGeo = meshMaterial = i = intersector = ''
 
 object_list = []
 
@@ -19,6 +19,8 @@ makeSquare = false
 startSquarePosX = ''
 startSquarePosY = ''
 click2D = ''
+
+blah = ''
 
 dStart = new THREE.Vector3()
 dEnd = new THREE.Vector3()
@@ -76,7 +78,7 @@ init = ->
 
 
   projector = new THREE.Projector()
-  mouse2D = new THREE.Vector3(0, 10000, 0.5)
+  mousePos = new THREE.Vector3(0, 10000, 0.5)
 
   # Create the render window and set antialias on and preserveDrawingBuffer to true so that printing will work correctly
   renderer = new THREE.WebGLRenderer(
@@ -100,10 +102,12 @@ init = ->
 # updates the mouse coordinates and will eventually be used to "rubberband" draw objects
 onDocumentMouseMove = (event) ->
   event.preventDefault()
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1
-  mouse2D.y = -((event.clientY )/ (window.innerHeight )) * 2 + 1
 
-  temp = mouse2D.clone()
+  position = getPosition(event)
+  mousePos.x = ( position.x / window.innerWidth) * 2 - 1
+  mousePos.y = -( position.y / window.innerHeight ) * 2 + 1
+
+  temp = mousePos.clone()
   projector.unprojectVector(temp, camera)
 
   if isMouseDown && modeChoice.create && shapeChoiceIsSet() && ! shapeChoice.line
@@ -129,11 +133,12 @@ onDocumentMouseDown = (event) ->
   event.preventDefault()
   isMouseDown = true
 
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1
-  mouse2D.y = -((event.clientY )/ window.innerHeight) * 2 + 1
-  mouse2D.z = 1
+  position = getPosition(event)
+  mousePos.x = (position.x / window.innerWidth) * 2 - 1
+  mousePos.y = -(position.y / window.innerHeight) * 2 + 1
+  mousePos.z = 1
 
-  temp = mouse2D.clone()
+  temp = mousePos.clone()
   projector.unprojectVector( temp, camera)
 
   dStart.x = temp.x
@@ -142,7 +147,7 @@ onDocumentMouseDown = (event) ->
 
   if modeChoice.select
     # find the object with the highest z position that the click coordinates are within
-    ray = projector.pickingRay( mouse2D.clone(), camera)
+    ray = projector.pickingRay( mousePos.clone(), camera)
     tempTopObj = null
     intersects = ray.intersectScene scene
     console.log intersects
@@ -174,11 +179,12 @@ onDocumentMouseUp = (event) ->
   # set the draw color (value from the color control UI)
   setDrawColor()
 
-  mouse2D.x = (event.clientX / window.innerWidth) * 2 - 1
-  mouse2D.y = -((event.clientY )/ window.innerHeight) * 2 + 1
-  mouse2D.z = 1
+  position = getPosition(event)
+  mousePos.x = (position.x / window.innerWidth) * 2 - 1
+  mousePos.y = -( position.y / window.innerHeight) * 2 + 1
+  mousePos.z = 1
 
-  dEnd = mouse2D.clone()
+  dEnd = mousePos.clone()
   dEnd = projector.unprojectVector( dEnd, camera)
 
   # find the delta between the initial mouse down and the mouse up positions
@@ -427,6 +433,20 @@ mode_gui.add(modeChoice, "select").listen().onChange(deselect = ->
   if modeChoice.select
     modeChoice.create = false
 )
+
+############## event position function
+getPosition = (e) ->
+  targ = undefined
+  e = window.event  unless e
+  if e.target
+    targ = e.target
+  else targ = e.srcElement  if e.srcElement
+  targ = targ.parentNode  if targ.nodeType is 3
+  x = e.pageX - $(targ).offset().left
+  y = e.pageY - $(targ).offset().top
+  x: x
+  y: y
+
 
 
 ############# Main Loop ###############
