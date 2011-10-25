@@ -20,7 +20,7 @@ startSquarePosX = ''
 startSquarePosY = ''
 click2D = ''
 
-blah = ''
+copyObj = ''
 
 dStart = new THREE.Vector3()
 dEnd = new THREE.Vector3()
@@ -69,8 +69,8 @@ init = ->
   # create a new camera with an orthographic projection
   # params go (left, right, top, bottom, near, far)
   # the aspect ration * 1000 for right is set the far right coordiante of the canvas correctly in the event of a non square window
-  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000)
-  camera.position.set(0, 0, 0)
+  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, -10000, 10000)
+  # camera.position.set(0, 0, 1000)
   # camera.target.position.set( 0, 0, 10000 )
 
   # create scene object, this will contain all my drawable elements
@@ -125,6 +125,10 @@ onDocumentMouseMove = (event) ->
     currentObj.scale.set(xScale, yScale, .000001)
     currentObj.updateMatrix()
 
+  if isMouseDown && modeChoice.select
+    currentObj.position.x = temp.x
+    currentObj.position.y = temp.y
+    currentObj.updateMatrix()
 
 # onDocumentMouseDown(event)
 # find the current location of the click event by unprojecting
@@ -156,7 +160,10 @@ onDocumentMouseDown = (event) ->
         tempTopObj = obj.object
       if obj.object.position.z > tempTopObj.position.z
         tempTopObj = obj.object
-    scene.remove tempTopObj
+    # scene.remove tempTopObj
+    currentObj = tempTopObj
+    currentObj.position.z = currentHeight
+    currentHeight += 1
 
   if modeChoice.create
     if shapeChoice.rectangle
@@ -215,12 +222,51 @@ onDocumentKeyDown = (event) ->
     when "L".charCodeAt(0)
       load()
     when "S".charCodeAt(0)
-	    save()
+      save()
+    when "X".charCodeAt(0)
+      cut()
+    when "C".charCodeAt(0)
+      copy()
+    when "V".charCodeAt(0)
+      paste()
+
+
+
 
 # onDocumentKeyUp(event)
 # respond to keyUps
 onDocumentKeyUp = (event) ->
   # nothing needed so far
+
+
+cut = ->
+
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0])
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight)
+  copyObj.scale = currentObj.scale
+  currentHeight += 1
+  copyObj.matrixAutoupdate = false
+  copyObj.updateMatrix()
+
+  scene.remove currentObj
+
+copy = ->
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0])
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight)
+  copyObj.scale = currentObj.scale
+  currentHeight += 1
+  copyObj.matrixAutoupdate = false
+  copyObj.updateMatrix()
+
+paste = ->
+  currentObj = copyObj
+  scene.add copyObj
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0])
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight)
+  copyObj.scale = currentObj.scale
+  currentHeight += 1
+  copyObj.matrixAutoupdate = false
+  copyObj.updateMatrix()
 
 # print()
 # create an image file of the current window

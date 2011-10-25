@@ -1,4 +1,4 @@
-var animate, blah, camera, click2D, colorValues, color_gui, container, cube, cubeGeo, currentHeight, currentObj, dEnd, dStart, deselect, drawColor, getPosition, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse3D, mousePos, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
+var animate, camera, click2D, colorValues, color_gui, container, copy, copyObj, cube, cubeGeo, currentHeight, currentObj, cut, dEnd, dStart, deselect, drawColor, getPosition, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse3D, mousePos, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, paste, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
 if (!Detector.webgl) {
   Detector.addGetWebGLMessage();
 }
@@ -16,7 +16,7 @@ makeSquare = false;
 startSquarePosX = '';
 startSquarePosY = '';
 click2D = '';
-blah = '';
+copyObj = '';
 dStart = new THREE.Vector3();
 dEnd = new THREE.Vector3();
 colorValues = {
@@ -50,8 +50,7 @@ init = function() {
   container = document.createElement("div");
   document.body.appendChild(container);
   aspect_ratio = window.innerWidth / window.innerHeight;
-  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, 10000, -10000);
-  camera.position.set(0, 0, 0);
+  camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, -10000, 10000);
   scene = new THREE.Scene();
   projector = new THREE.Projector();
   mousePos = new THREE.Vector3(0, 10000, 0.5);
@@ -86,6 +85,11 @@ onDocumentMouseMove = function(event) {
       xScale = yScale = radius / 14;
     }
     currentObj.scale.set(xScale, yScale, .000001);
+    currentObj.updateMatrix();
+  }
+  if (isMouseDown && modeChoice.select) {
+    currentObj.position.x = temp.x;
+    currentObj.position.y = temp.y;
     return currentObj.updateMatrix();
   }
 };
@@ -116,7 +120,9 @@ onDocumentMouseDown = function(event) {
         tempTopObj = obj.object;
       }
     }
-    scene.remove(tempTopObj);
+    currentObj = tempTopObj;
+    currentObj.position.z = currentHeight;
+    currentHeight += 1;
   }
   if (modeChoice.create) {
     if (shapeChoice.rectangle) {
@@ -155,9 +161,42 @@ onDocumentKeyDown = function(event) {
       return load();
     case "S".charCodeAt(0):
       return save();
+    case "X".charCodeAt(0):
+      return cut();
+    case "C".charCodeAt(0):
+      return copy();
+    case "V".charCodeAt(0):
+      return paste();
   }
 };
 onDocumentKeyUp = function(event) {};
+cut = function() {
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0]);
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight);
+  copyObj.scale = currentObj.scale;
+  currentHeight += 1;
+  copyObj.matrixAutoupdate = false;
+  copyObj.updateMatrix();
+  return scene.remove(currentObj);
+};
+copy = function() {
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0]);
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight);
+  copyObj.scale = currentObj.scale;
+  currentHeight += 1;
+  copyObj.matrixAutoupdate = false;
+  return copyObj.updateMatrix();
+};
+paste = function() {
+  currentObj = copyObj;
+  scene.add(copyObj);
+  copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0]);
+  copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight);
+  copyObj.scale = currentObj.scale;
+  currentHeight += 1;
+  copyObj.matrixAutoupdate = false;
+  return copyObj.updateMatrix();
+};
 print = function() {
   return window.open(renderer.domElement.toDataURL("image/png"), "SketchPad IMG");
 };
