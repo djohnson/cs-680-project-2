@@ -34,7 +34,8 @@ shapeChoice =
   rectangle: false
   circle: false
   line: false
-
+  point: false
+  
 modeChoice =
   create: false
   select: false
@@ -99,13 +100,13 @@ init = ->
   document.addEventListener "keyup", onDocumentKeyUp, false
 
 # onDocumentMouseMove(event)
-# updates the mouse coordinates and will eventually be used to "rubberband" draw objects
 onDocumentMouseMove = (event) ->
   event.preventDefault()
 
   position = getPosition(event)
   mousePos.x = ( position.x / window.innerWidth) * 2 - 1
   mousePos.y = -( position.y / window.innerHeight ) * 2 + 1
+
 
   temp = mousePos.clone()
   projector.unprojectVector(temp, camera)
@@ -211,6 +212,8 @@ onDocumentMouseUp = (event) ->
   if modeChoice.create
     if shapeChoice.line
       makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
+    if shapeChoice.point
+      makeCircle(5, 5, dStart.x, dStart.y, drawColor)
 
 # onDocumentKeyDown(event)
 # respond to keypresses
@@ -326,6 +329,8 @@ loadObject = (object) ->
         makeCircle(object[1], object[2], object[3], object[4], object[5])
       when 'line'
         makeLine(object[1], object[2], object[3], object[4], object[5])
+      when 'point'
+        makeCircle(object[1], object[2], object[3], object[4], object[5])
 
 # makeRectangle(deltaX, deltaY, positionX, positionY)
 # create a rectangle from width, height, and center point
@@ -354,7 +359,7 @@ makeCircle = (dX, dY, pX, pY, color) ->
     color: color
   )
   radius = Math.sqrt(dX * dX + dY * dY)
-  if radius > 10
+  if radius > 5
     circleGeo = new THREE.SphereGeometry(radius, 20, 20)
     circle = new THREE.Mesh(circleGeo, meshMaterial)
     circle.position.set(pX, pY,currentHeight)
@@ -442,7 +447,7 @@ color_gui.add(colorValues, 'blue').min(0).max(255).step(1)
 
 # create the shape control UI
 shape_gui = new DAT.GUI({
-  height: 3*32 -1
+  height: 4*32 -1
 })
 
 shape_gui.name("Shape Selector")
@@ -451,17 +456,27 @@ shape_gui.add(shapeChoice, "rectangle").listen().onChange(deselect = ->
   if shapeChoice.rectangle
     shapeChoice.circle = false
     shapeChoice.line = false
+    shapeChoice.point = false
 )
 shape_gui.add(shapeChoice, "circle").listen().onChange(deselect = ->
   if shapeChoice.circle
     shapeChoice.rectangle = false
     shapeChoice.line = false
+    shapeChoice.point = false
 )
 
 shape_gui.add(shapeChoice, "line").listen().onChange(deselect = ->
   if shapeChoice.line
     shapeChoice.rectangle = false
     shapeChoice.circle = false
+    shapeChoice.point = false
+)
+
+shape_gui.add(shapeChoice, "point").listen().onChange(deselect = ->
+  if shapeChoice.point
+    shapeChoice.rectangle = false
+    shapeChoice.circle = false
+    shapeChoice.line = false
 )
 
 # create the mode control UI

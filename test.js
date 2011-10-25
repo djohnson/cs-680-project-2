@@ -27,7 +27,8 @@ colorValues = {
 shapeChoice = {
   rectangle: false,
   circle: false,
-  line: false
+  line: false,
+  point: false
 };
 modeChoice = {
   create: false,
@@ -149,7 +150,10 @@ onDocumentMouseUp = function(event) {
   dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
   if (modeChoice.create) {
     if (shapeChoice.line) {
-      return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+      makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+    }
+    if (shapeChoice.point) {
+      return makeCircle(5, 5, dStart.x, dStart.y, drawColor);
     }
   }
 };
@@ -239,6 +243,8 @@ loadObject = function(object) {
         return makeCircle(object[1], object[2], object[3], object[4], object[5]);
       case 'line':
         return makeLine(object[1], object[2], object[3], object[4], object[5]);
+      case 'point':
+        return makeCircle(object[1], object[2], object[3], object[4], object[5]);
     }
   }
 };
@@ -263,7 +269,7 @@ makeCircle = function(dX, dY, pX, pY, color) {
     color: color
   });
   radius = Math.sqrt(dX * dX + dY * dY);
-  if (radius > 10) {
+  if (radius > 5) {
     circleGeo = new THREE.SphereGeometry(radius, 20, 20);
     circle = new THREE.Mesh(circleGeo, meshMaterial);
     circle.position.set(pX, pY, currentHeight);
@@ -339,25 +345,35 @@ color_gui.add(colorValues, 'red').min(0).max(255).step(1);
 color_gui.add(colorValues, 'green').min(0).max(255).step(1);
 color_gui.add(colorValues, 'blue').min(0).max(255).step(1);
 shape_gui = new DAT.GUI({
-  height: 3 * 32 - 1
+  height: 4 * 32 - 1
 });
 shape_gui.name("Shape Selector");
 shape_gui.add(shapeChoice, "rectangle").listen().onChange(deselect = function() {
   if (shapeChoice.rectangle) {
     shapeChoice.circle = false;
-    return shapeChoice.line = false;
+    shapeChoice.line = false;
+    return shapeChoice.point = false;
   }
 });
 shape_gui.add(shapeChoice, "circle").listen().onChange(deselect = function() {
   if (shapeChoice.circle) {
     shapeChoice.rectangle = false;
-    return shapeChoice.line = false;
+    shapeChoice.line = false;
+    return shapeChoice.point = false;
   }
 });
 shape_gui.add(shapeChoice, "line").listen().onChange(deselect = function() {
   if (shapeChoice.line) {
     shapeChoice.rectangle = false;
-    return shapeChoice.circle = false;
+    shapeChoice.circle = false;
+    return shapeChoice.point = false;
+  }
+});
+shape_gui.add(shapeChoice, "point").listen().onChange(deselect = function() {
+  if (shapeChoice.point) {
+    shapeChoice.rectangle = false;
+    shapeChoice.circle = false;
+    return shapeChoice.line = false;
   }
 });
 mode_gui = new DAT.GUI({
