@@ -1,4 +1,4 @@
-var animate, camera, click2D, colorValues, color_gui, container, copy, copyObj, cube, cubeGeo, currentHeight, currentObj, cut, dEnd, dStart, deselect, drawColor, getPosition, i, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, modeChoice, mode_gui, mouse3D, mousePos, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, paste, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, save, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec;
+var animate, blah, camera, click2D, colorValues, color_gui, container, copy, copyObj, cube, cubeGeo, currentHeight, currentObj, cut, dEnd, dStart, deselect, drawColor, getPosition, i, inCanvas, init, intersector, isCtrlDown, isMouseDown, isShiftDown, lineMat, load, loadObject, makeCircle, makeLine, makeRectangle, makeSquare, meshMaterial, mod_gui, modeChoice, mode_gui, modifierValues, mouse3D, mousePos, object_list, onDocumentKeyDown, onDocumentKeyUp, onDocumentMouseDown, onDocumentMouseMove, onDocumentMouseUp, paste, plane, print, projector, ray, render, renderer, rollOverMaterial, rollOverMesh, rollOveredFace, rot, save, sca, scene, setDrawColor, shapeChoice, shapeChoiceIsSet, shape_gui, showPrompt, squarePosition, square_size, startSquarePosX, startSquarePosY, stats, theta, tmpVec, updateCurObjColor, updateCurObjRot, updateCurObjScale;
 if (!Detector.webgl) {
   Detector.addGetWebGLMessage();
 }
@@ -24,10 +24,15 @@ colorValues = {
   green: 0,
   blue: 0
 };
+modifierValues = {
+  rotation: 0,
+  scale: 1
+};
 shapeChoice = {
   rectangle: false,
   circle: false,
-  line: false
+  line: false,
+  point: false
 };
 modeChoice = {
   create: false,
@@ -47,8 +52,7 @@ lineMat = new THREE.LineBasicMaterial({
 });
 init = function() {
   var aspect_ratio;
-  container = document.createElement("div");
-  document.body.appendChild(container);
+  container = $('#container')[0];
   aspect_ratio = window.innerWidth / window.innerHeight;
   camera = new THREE.OrthographicCamera(0, aspect_ratio * 1000, 1000, 0, -10000, 10000);
   scene = new THREE.Scene();
@@ -74,23 +78,25 @@ onDocumentMouseMove = function(event) {
   mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
   temp = mousePos.clone();
   projector.unprojectVector(temp, camera);
-  if (isMouseDown && modeChoice.create && shapeChoiceIsSet() && !shapeChoice.line) {
-    dX = Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x);
-    dY = Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y);
-    if (shapeChoice.rectangle) {
-      xScale = dX / 5.0;
-      yScale = dY / 5.0;
-    } else if (shapeChoice.circle) {
-      radius = Math.sqrt(dX * dX + dY * dY);
-      xScale = yScale = radius / 14;
+  if (inCanvas(event)) {
+    if (isMouseDown && modeChoice.create && shapeChoiceIsSet() && !shapeChoice.line) {
+      dX = Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x);
+      dY = Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y);
+      if (shapeChoice.rectangle) {
+        xScale = dX / 5.0;
+        yScale = dY / 5.0;
+      } else if (shapeChoice.circle) {
+        radius = Math.sqrt(dX * dX + dY * dY);
+        xScale = yScale = radius / 14;
+      }
+      currentObj.scale.set(xScale, yScale, .000001);
+      currentObj.updateMatrix();
     }
-    currentObj.scale.set(xScale, yScale, .000001);
-    currentObj.updateMatrix();
-  }
-  if (isMouseDown && modeChoice.select) {
-    currentObj.position.x = temp.x;
-    currentObj.position.y = temp.y;
-    return currentObj.updateMatrix();
+    if (isMouseDown && modeChoice.select) {
+      currentObj.position.x = temp.x;
+      currentObj.position.y = temp.y;
+      return currentObj.updateMatrix();
+    }
   }
 };
 onDocumentMouseDown = function(event) {
@@ -106,31 +112,34 @@ onDocumentMouseDown = function(event) {
   dStart.x = temp.x;
   dStart.y = temp.y;
   dStart.z = 0;
-  if (modeChoice.select) {
-    ray = projector.pickingRay(mousePos.clone(), camera);
-    tempTopObj = null;
-    intersects = ray.intersectScene(scene);
-    console.log(intersects);
-    for (_i = 0, _len = intersects.length; _i < _len; _i++) {
-      obj = intersects[_i];
-      if (tempTopObj === null) {
-        tempTopObj = obj.object;
+  if (inCanvas(event)) {
+    if (modeChoice.select) {
+      ray = projector.pickingRay(mousePos.clone(), camera);
+      tempTopObj = null;
+      intersects = ray.intersectScene(scene);
+      for (_i = 0, _len = intersects.length; _i < _len; _i++) {
+        obj = intersects[_i];
+        if (tempTopObj === null) {
+          tempTopObj = obj.object;
+        }
+        if (obj.object.position.z > tempTopObj.position.z) {
+          tempTopObj = obj.object;
+        }
       }
-      if (obj.object.position.z > tempTopObj.position.z) {
-        tempTopObj = obj.object;
-      }
+      currentObj = tempTopObj;
+      currentObj.position.z = currentHeight;
+      currentHeight += 1;
     }
-    currentObj = tempTopObj;
-    currentObj.position.z = currentHeight;
-    currentHeight += 1;
-  }
-  if (modeChoice.create) {
-    if (shapeChoice.rectangle) {
-      pX = dStart.x;
-      pY = dStart.y;
-      return makeRectangle(10, 10, pX, pY, drawColor);
-    } else if (shapeChoice.circle) {
-      return makeCircle(10, 10, dStart.x, dStart.y, drawColor);
+    if (modeChoice.create) {
+      if (shapeChoice.rectangle) {
+        pX = dStart.x;
+        pY = dStart.y;
+        return makeRectangle(10, 10, pX, pY, drawColor);
+      } else if (shapeChoice.circle) {
+        return makeCircle(10, 10, dStart.x, dStart.y, drawColor);
+      } else if (shapeChoice.point) {
+        return makeCircle(5, 5, dStart.x, dStart.y, drawColor);
+      }
     }
   }
 };
@@ -138,18 +147,20 @@ onDocumentMouseUp = function(event) {
   var dX, dY, position;
   event.preventDefault();
   isMouseDown = false;
-  setDrawColor();
-  position = getPosition(event);
-  mousePos.x = (position.x / window.innerWidth) * 2 - 1;
-  mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
-  mousePos.z = 1;
-  dEnd = mousePos.clone();
-  dEnd = projector.unprojectVector(dEnd, camera);
-  dX = Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x);
-  dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
-  if (modeChoice.create) {
-    if (shapeChoice.line) {
-      return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+  if (inCanvas(event)) {
+    setDrawColor();
+    position = getPosition(event);
+    mousePos.x = (position.x / window.innerWidth) * 2 - 1;
+    mousePos.y = -(position.y / window.innerHeight) * 2 + 1;
+    mousePos.z = 1;
+    dEnd = mousePos.clone();
+    dEnd = projector.unprojectVector(dEnd, camera);
+    dX = Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x);
+    dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
+    if (modeChoice.create) {
+      if (shapeChoice.line) {
+        return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+      }
     }
   }
 };
@@ -263,7 +274,7 @@ makeCircle = function(dX, dY, pX, pY, color) {
     color: color
   });
   radius = Math.sqrt(dX * dX + dY * dY);
-  if (radius > 10) {
+  if (radius > 5) {
     circleGeo = new THREE.SphereGeometry(radius, 20, 20);
     circle = new THREE.Mesh(circleGeo, meshMaterial);
     circle.position.set(pX, pY, currentHeight);
@@ -328,36 +339,85 @@ setDrawColor = function() {
   drawColor += g;
   return drawColor += b;
 };
-shapeChoiceIsSet = function() {
-  return shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle;
+updateCurObjColor = function() {
+  setDrawColor();
+  if (modeChoice.select) {
+    return currentObj.materials[0].color.setHex(drawColor);
+  }
 };
+updateCurObjRot = function() {
+  if (modeChoice.select && currentObj) {
+    currentObj.rotation.z = modifierValues.rotation;
+    return currentObj.updateMatrix();
+  }
+};
+updateCurObjScale = function() {
+  var temp_scale;
+  if (modeChoice.select && currentObj) {
+    temp_scale = currentObj.scale.x;
+    temp_scale = temp_scale * modifierValues.scale;
+    currentObj.scale.x = temp_scale;
+    currentObj.scale.y = temp_scale;
+    currentObj.updateMatrix();
+    return console.log('test');
+  }
+};
+shapeChoiceIsSet = function() {
+  return shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle || shapeChoice.point;
+};
+mod_gui = new DAT.GUI({
+  height: 2 * 32 - 1
+});
+mod_gui.name("Modifier Control");
+mod_gui.add(modifierValues, "scale").min(0.25).max(4.0).step(0.25).onFinishChange(sca = function() {
+  return updateCurObjScale();
+});
+mod_gui.add(modifierValues, "rotation").min(0).max(365).step(1).onFinishChange(rot = function() {
+  return updateCurObjRot();
+});
 color_gui = new DAT.GUI({
   height: 3 * 32 - 1
 });
 color_gui.name("Color Control");
-color_gui.add(colorValues, 'red').min(0).max(255).step(1);
-color_gui.add(colorValues, 'green').min(0).max(255).step(1);
-color_gui.add(colorValues, 'blue').min(0).max(255).step(1);
+color_gui.add(colorValues, 'red').min(0).max(255).step(1).onFinishChange(blah = function() {
+  return updateCurObjColor();
+});
+color_gui.add(colorValues, 'green').min(0).max(255).step(1).onFinishChange(blah = function() {
+  return updateCurObjColor();
+});
+color_gui.add(colorValues, 'blue').min(0).max(255).step(1).onFinishChange(blah = function() {
+  return updateCurObjColor();
+});
 shape_gui = new DAT.GUI({
-  height: 3 * 32 - 1
+  height: 4 * 32 - 1
 });
 shape_gui.name("Shape Selector");
 shape_gui.add(shapeChoice, "rectangle").listen().onChange(deselect = function() {
   if (shapeChoice.rectangle) {
     shapeChoice.circle = false;
-    return shapeChoice.line = false;
+    shapeChoice.line = false;
+    return shapeChoice.point = false;
   }
 });
 shape_gui.add(shapeChoice, "circle").listen().onChange(deselect = function() {
   if (shapeChoice.circle) {
     shapeChoice.rectangle = false;
-    return shapeChoice.line = false;
+    shapeChoice.line = false;
+    return shapeChoice.point = false;
   }
 });
 shape_gui.add(shapeChoice, "line").listen().onChange(deselect = function() {
   if (shapeChoice.line) {
     shapeChoice.rectangle = false;
-    return shapeChoice.circle = false;
+    shapeChoice.circle = false;
+    return shapeChoice.point = false;
+  }
+});
+shape_gui.add(shapeChoice, "point").listen().onChange(deselect = function() {
+  if (shapeChoice.line) {
+    shapeChoice.rectangle = false;
+    shapeChoice.circle = false;
+    return shapeChoice.line = false;
   }
 });
 mode_gui = new DAT.GUI({
@@ -374,8 +434,8 @@ mode_gui.add(modeChoice, "select").listen().onChange(deselect = function() {
     return modeChoice.create = false;
   }
 });
-getPosition = function(e) {
-  var targ, x, y;
+inCanvas = function(e) {
+  var targ;
   targ = void 0;
   if (!e) {
     e = window.event;
@@ -387,8 +447,18 @@ getPosition = function(e) {
       targ = e.srcElement;
     }
   }
-  if (targ.nodeType === 3) {
-    targ = targ.parentNode;
+  return targ === $('canvas')[0];
+};
+getPosition = function(e) {
+  var targ, x, y;
+  targ = void 0;
+  if (!e) {
+    e = window.event;
+  }
+  if (e.target) {
+    targ = e.target;
+  } else {
+    targ = e.srcElement(e.srcElement ? targ.nodeType === 3 ? targ = targ.parentNode : void 0 : void 0);
   }
   x = e.pageX - $(targ).offset().left;
   y = e.pageY - $(targ).offset().top;

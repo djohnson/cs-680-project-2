@@ -30,14 +30,21 @@ colorValues =
   green: 0
   blue: 0
 
+modifierValues =
+  rotation: 0
+  scale: 1
+
 shapeChoice =
   rectangle: false
   circle: false
   line: false
+  point: false
 
 modeChoice =
   create: false
   select: false
+
+
 
 currentObj = ''
 shapeChoiceIsSet = false
@@ -60,8 +67,9 @@ lineMat = new THREE.LineBasicMaterial(
 # sets up the window, camera, canvas, and other necessary objects
 init = ->
   # create a div and append it to the page body
-  container = document.createElement("div")
-  document.body.appendChild container
+  # container = document.createElement("div")
+  # document.body.appendChild container
+  container = $('#container')[0]
 
   # I want a orthographic projection because this is a 2d project
   # compute the aspect ratio of the window
@@ -109,26 +117,26 @@ onDocumentMouseMove = (event) ->
 
   temp = mousePos.clone()
   projector.unprojectVector(temp, camera)
+  if inCanvas(event)
+    if isMouseDown && modeChoice.create && shapeChoiceIsSet() && ! shapeChoice.line
 
-  if isMouseDown && modeChoice.create && shapeChoiceIsSet() && ! shapeChoice.line
+      dX = ( Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x) )
+      dY = ( Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y) )
 
-    dX = ( Math.max(temp.x, dStart.x) - Math.min(temp.x, dStart.x) )
-    dY = ( Math.max(temp.y, dStart.y) - Math.min(temp.y, dStart.y) )
+      if shapeChoice.rectangle
+        xScale = dX / 5.0
+        yScale = dY / 5.0
+      else if shapeChoice.circle
+        radius = Math.sqrt(dX * dX + dY * dY)
+        xScale = yScale = radius / 14
 
-    if shapeChoice.rectangle
-      xScale = dX / 5.0
-      yScale = dY / 5.0
-    else if shapeChoice.circle
-      radius = Math.sqrt(dX * dX + dY * dY)
-      xScale = yScale = radius / 14
+      currentObj.scale.set(xScale, yScale, .000001)
+      currentObj.updateMatrix()
 
-    currentObj.scale.set(xScale, yScale, .000001)
-    currentObj.updateMatrix()
-
-  if isMouseDown && modeChoice.select
-    currentObj.position.x = temp.x
-    currentObj.position.y = temp.y
-    currentObj.updateMatrix()
+    if isMouseDown && modeChoice.select
+      currentObj.position.x = temp.x
+      currentObj.position.y = temp.y
+      currentObj.updateMatrix()
 
 # onDocumentMouseDown(event)
 # find the current location of the click event by unprojecting
@@ -149,29 +157,31 @@ onDocumentMouseDown = (event) ->
   dStart.y = temp.y
   dStart.z = 0
 
-  if modeChoice.select
-    # find the object with the highest z position that the click coordinates are within
-    ray = projector.pickingRay( mousePos.clone(), camera)
-    tempTopObj = null
-    intersects = ray.intersectScene scene
-    console.log intersects
-    for obj in intersects
-      if tempTopObj == null
-        tempTopObj = obj.object
-      if obj.object.position.z > tempTopObj.position.z
-        tempTopObj = obj.object
-    # scene.remove tempTopObj
-    currentObj = tempTopObj
-    currentObj.position.z = currentHeight
-    currentHeight += 1
+  if inCanvas(event)
+    if modeChoice.select
+      # find the object with the highest z position that the click coordinates are within
+      ray = projector.pickingRay( mousePos.clone(), camera)
+      tempTopObj = null
+      intersects = ray.intersectScene scene
+      for obj in intersects
+        if tempTopObj == null
+          tempTopObj = obj.object
+        if obj.object.position.z > tempTopObj.position.z
+          tempTopObj = obj.object
+      # scene.remove tempTopObj
+      currentObj = tempTopObj
+      currentObj.position.z = currentHeight
+      currentHeight += 1
 
-  if modeChoice.create
-    if shapeChoice.rectangle
-      pX = dStart.x
-      pY = dStart.y
-      makeRectangle(10,10,pX,pY, drawColor)
-    else if shapeChoice.circle
-      makeCircle(10, 10, dStart.x, dStart.y, drawColor)
+    if modeChoice.create
+      if shapeChoice.rectangle
+        pX = dStart.x
+        pY = dStart.y
+        makeRectangle(10,10,pX,pY, drawColor)
+      else if shapeChoice.circle
+        makeCircle(10, 10, dStart.x, dStart.y, drawColor)
+      else if shapeChoice.point
+        makeCircle(5,5, dStart.x, dStart.y, drawColor)
 
 
 
@@ -183,34 +193,35 @@ onDocumentMouseUp = (event) ->
   event.preventDefault()
   isMouseDown = false
 
-  # set the draw color (value from the color control UI)
-  setDrawColor()
+  if inCanvas(event)
+    # set the draw color (value from the color control UI)
+    setDrawColor()
 
-  position = getPosition(event)
-  mousePos.x = (position.x / window.innerWidth) * 2 - 1
-  mousePos.y = -( position.y / window.innerHeight) * 2 + 1
-  mousePos.z = 1
+    position = getPosition(event)
+    mousePos.x = (position.x / window.innerWidth) * 2 - 1
+    mousePos.y = -( position.y / window.innerHeight) * 2 + 1
+    mousePos.z = 1
 
-  dEnd = mousePos.clone()
-  dEnd = projector.unprojectVector( dEnd, camera)
+    dEnd = mousePos.clone()
+    dEnd = projector.unprojectVector( dEnd, camera)
 
-  # find the delta between the initial mouse down and the mouse up positions
-  dX = ( Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x) )
-  dY = ( Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y) )
+    # find the delta between the initial mouse down and the mouse up positions
+    dX = ( Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x) )
+    dY = ( Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y) )
 
 
-  # draw the shape
-  # if shapeChoice.rectangle
-  #   # calculate the position of the rectangle (position is the center of the object so I have to offset by half the height and width)
-  #   pX = dStart.x + .5 * dX
-  #   pY = dStart.y - .5 * dY
-  #   makeRectangle(dX,dY,pX,pY, drawColor)
-  # else if shapeChoice.circle
-  #   makeCircle(dX, dY, dStart.x, dStart.y, drawColor)
-  # else
-  if modeChoice.create
-    if shapeChoice.line
-      makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
+    # draw the shape
+    # if shapeChoice.rectangle
+    #   # calculate the position of the rectangle (position is the center of the object so I have to offset by half the height and width)
+    #   pX = dStart.x + .5 * dX
+    #   pY = dStart.y - .5 * dY
+    #   makeRectangle(dX,dY,pX,pY, drawColor)
+    # else if shapeChoice.circle
+    #   makeCircle(dX, dY, dStart.x, dStart.y, drawColor)
+    # else
+    if modeChoice.create
+      if shapeChoice.line
+        makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
 
 # onDocumentKeyDown(event)
 # respond to keypresses
@@ -240,7 +251,6 @@ onDocumentKeyUp = (event) ->
 
 
 cut = ->
-
   copyObj = new THREE.Mesh(currentObj.geometry, currentObj.materials[0])
   copyObj.position.set(currentObj.position.x, currentObj.position.y, currentHeight)
   copyObj.scale = currentObj.scale
@@ -354,7 +364,7 @@ makeCircle = (dX, dY, pX, pY, color) ->
     color: color
   )
   radius = Math.sqrt(dX * dX + dY * dY)
-  if radius > 10
+  if radius > 5
     circleGeo = new THREE.SphereGeometry(radius, 20, 20)
     circle = new THREE.Mesh(circleGeo, meshMaterial)
     circle.position.set(pX, pY,currentHeight)
@@ -425,10 +435,44 @@ setDrawColor = ->
   drawColor += g
   drawColor += b
 
-######## UI Elements ################
+updateCurObjColor = ->
+  setDrawColor()
+  if modeChoice.select
+    currentObj.materials[0].color.setHex(drawColor)
+
+updateCurObjRot = ->
+  if modeChoice.select && currentObj
+    currentObj.rotation.z = modifierValues.rotation
+    currentObj.updateMatrix()
+
+
+updateCurObjScale = ->
+  if modeChoice.select && currentObj
+    temp_scale = currentObj.scale.x
+    temp_scale = temp_scale * modifierValues.scale
+    currentObj.scale.x = temp_scale
+    currentObj.scale.y = temp_scale
+    currentObj.updateMatrix()
+    console.log('test')
 
 shapeChoiceIsSet = ->
-  return (shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle)
+  return (shapeChoice.circle || shapeChoice.line || shapeChoice.rectangle || shapeChoice.point )
+
+######## UI Elements ################
+
+#create the modifier UI
+mod_gui = new DAT.GUI({
+  height: 2 * 32 -1
+})
+mod_gui.name("Modifier Control")
+mod_gui.add(modifierValues, "scale").min(0.25).max(4.0).step(0.25).onFinishChange( sca = ->
+  updateCurObjScale()
+)
+mod_gui.add(modifierValues, "rotation").min(0).max(365).step(1).onFinishChange( rot = ->
+  updateCurObjRot()
+)
+
+
 
 # create the color control UI
 color_gui = new DAT.GUI({
@@ -436,39 +480,58 @@ color_gui = new DAT.GUI({
 })
 color_gui.name("Color Control")
 # rgb values are of the range 0-255 as ints only so step 1
-color_gui.add(colorValues, 'red').min(0).max(255).step(1)
-color_gui.add(colorValues, 'green').min(0).max(255).step(1)
-color_gui.add(colorValues, 'blue').min(0).max(255).step(1)
+color_gui.add(colorValues, 'red').min(0).max(255).step(1).onFinishChange( blah = ->
+  updateCurObjColor()
+)
+color_gui.add(colorValues, 'green').min(0).max(255).step(1).onFinishChange(blah = ->
+  updateCurObjColor()
+)
+color_gui.add(colorValues, 'blue').min(0).max(255).step(1).onFinishChange(blah = ->
+  updateCurObjColor()
+)
+
+
+
 
 # create the shape control UI
 shape_gui = new DAT.GUI({
-  height: 3*32 -1
+  height: 4*32 -1
 })
-
 shape_gui.name("Shape Selector")
 # the shape options should deselect the other shape choices and those that are deselected should update their values
 shape_gui.add(shapeChoice, "rectangle").listen().onChange(deselect = ->
   if shapeChoice.rectangle
     shapeChoice.circle = false
     shapeChoice.line = false
+    shapeChoice.point = false
 )
 shape_gui.add(shapeChoice, "circle").listen().onChange(deselect = ->
   if shapeChoice.circle
     shapeChoice.rectangle = false
     shapeChoice.line = false
+    shapeChoice.point = false
 )
 
 shape_gui.add(shapeChoice, "line").listen().onChange(deselect = ->
   if shapeChoice.line
     shapeChoice.rectangle = false
     shapeChoice.circle = false
+    shapeChoice.point = false
 )
+
+shape_gui.add(shapeChoice, "point").listen().onChange(deselect = ->
+  if shapeChoice.line
+    shapeChoice.rectangle = false
+    shapeChoice.circle = false
+    shapeChoice.line = false
+)
+
+
 
 # create the mode control UI
 mode_gui = new DAT.GUI({
   height: 2*32 -1
 })
-
 mode_gui.name("Mode Selector")
 # the shape options should deselect the other shape choices and those that are deselected should update their values
 mode_gui.add(modeChoice, "create").listen().onChange(deselect = ->
@@ -480,6 +543,17 @@ mode_gui.add(modeChoice, "select").listen().onChange(deselect = ->
     modeChoice.create = false
 )
 
+
+
+############### check if event target is canvas
+inCanvas = (e) ->
+  targ = undefined
+  e = window.event  unless e
+  if e.target
+    targ = e.target
+  else targ = e.srcElement  if e.srcElement
+  return targ == $('canvas')[0]
+
 ############## event position function
 getPosition = (e) ->
   targ = undefined
@@ -487,16 +561,14 @@ getPosition = (e) ->
   if e.target
     targ = e.target
   else targ = e.srcElement  if e.srcElement
-  targ = targ.parentNode  if targ.nodeType is 3
+    targ = targ.parentNode  if targ.nodeType is 3
   x = e.pageX - $(targ).offset().left
   y = e.pageY - $(targ).offset().top
   x: x
   y: y
 
 
-
 ############# Main Loop ###############
-
 # call the function that call all the others
 init()
 # enter the render loop
