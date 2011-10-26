@@ -44,8 +44,6 @@ modeChoice =
   create: false
   select: false
 
-
-
 currentObj = ''
 shapeChoiceIsSet = false
 currentHeight = 0
@@ -107,13 +105,13 @@ init = ->
   document.addEventListener "keyup", onDocumentKeyUp, false
 
 # onDocumentMouseMove(event)
-# updates the mouse coordinates and will eventually be used to "rubberband" draw objects
 onDocumentMouseMove = (event) ->
   event.preventDefault()
 
   position = getPosition(event)
   mousePos.x = ( position.x / window.innerWidth) * 2 - 1
   mousePos.y = -( position.y / window.innerHeight ) * 2 + 1
+
 
   temp = mousePos.clone()
   projector.unprojectVector(temp, camera)
@@ -184,8 +182,6 @@ onDocumentMouseDown = (event) ->
         makeCircle(5,5, dStart.x, dStart.y, drawColor)
 
 
-
-
 # onDocumentMouseUp(event)
 # find the current location of the click event by unprojecting
 # create a shape object depending on the menu selections
@@ -209,7 +205,6 @@ onDocumentMouseUp = (event) ->
     dX = ( Math.max(dEnd.x, dStart.x) - Math.min(dEnd.x, dStart.x) )
     dY = ( Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y) )
 
-
     # draw the shape
     # if shapeChoice.rectangle
     #   # calculate the position of the rectangle (position is the center of the object so I have to offset by half the height and width)
@@ -222,6 +217,8 @@ onDocumentMouseUp = (event) ->
     if modeChoice.create
       if shapeChoice.line
         makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor)
+      if shapeChoice.point
+        makeCircle(5, 5, dStart.x, dStart.y, drawColor)
 
 # onDocumentKeyDown(event)
 # respond to keypresses
@@ -336,6 +333,8 @@ loadObject = (object) ->
         makeCircle(object[1], object[2], object[3], object[4], object[5])
       when 'line'
         makeLine(object[1], object[2], object[3], object[4], object[5])
+      when 'point'
+        makeCircle(object[1], object[2], object[3], object[4], object[5])
 
 # makeRectangle(deltaX, deltaY, positionX, positionY)
 # create a rectangle from width, height, and center point
@@ -511,14 +510,12 @@ shape_gui.add(shapeChoice, "circle").listen().onChange(deselect = ->
     shapeChoice.line = false
     shapeChoice.point = false
 )
-
 shape_gui.add(shapeChoice, "line").listen().onChange(deselect = ->
   if shapeChoice.line
     shapeChoice.rectangle = false
     shapeChoice.circle = false
     shapeChoice.point = false
 )
-
 shape_gui.add(shapeChoice, "point").listen().onChange(deselect = ->
   if shapeChoice.line
     shapeChoice.rectangle = false

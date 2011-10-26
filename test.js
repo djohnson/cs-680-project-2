@@ -159,7 +159,10 @@ onDocumentMouseUp = function(event) {
     dY = Math.max(dEnd.y, dStart.y) - Math.min(dEnd.y, dStart.y);
     if (modeChoice.create) {
       if (shapeChoice.line) {
-        return makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+        makeLine(dStart.x, dStart.y, dEnd.x, dEnd.y, drawColor);
+      }
+      if (shapeChoice.point) {
+        return makeCircle(5, 5, dStart.x, dStart.y, drawColor);
       }
     }
   }
@@ -250,6 +253,8 @@ loadObject = function(object) {
         return makeCircle(object[1], object[2], object[3], object[4], object[5]);
       case 'line':
         return makeLine(object[1], object[2], object[3], object[4], object[5]);
+      case 'point':
+        return makeCircle(object[1], object[2], object[3], object[4], object[5]);
     }
   }
 };
